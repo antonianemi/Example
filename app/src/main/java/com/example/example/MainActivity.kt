@@ -197,10 +197,6 @@ fun WeatherScreenPreview() {
     ExampleTheme {
         val repository = WeatherRepository()
         val viewModel = WeatherViewModel(repository)
-
-        viewModel.onCityChanged("Chicago")
-        viewModel.searchWeather()
-
         WeatherScreen(
             viewModel = viewModel
         )
