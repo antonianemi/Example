@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,15 +22,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.example.ui.theme.ExampleTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel = WeatherViewModel(
-        WeatherRepository()
-    )
+    private val viewModel: WeatherViewModel by viewModels {
+        WeatherViewModel.Factory(
+            (application as ExampleApplication).container.weatherRepository
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -191,14 +193,14 @@ fun WeatherDetail(
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun WeatherScreenPreview() {
-    ExampleTheme {
-        val repository = WeatherRepository()
-        val viewModel = WeatherViewModel(repository)
-        WeatherScreen(
-            viewModel = viewModel
-        )
-    }
-}
+//@Preview(showBackground = true)
+//@Composable
+//fun WeatherScreenPreview() {
+//    ExampleTheme {
+//        val repository = WeatherRepositoryImpl()
+//        val viewModel = WeatherViewModel(repository)
+//        WeatherScreen(
+//            viewModel = viewModel
+//        )
+//    }
+//}
