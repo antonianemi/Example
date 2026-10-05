@@ -19,10 +19,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -30,15 +26,24 @@ import androidx.compose.ui.unit.dp
 import com.example.example.ui.theme.ExampleTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val viewModel = WeatherViewModel(
+        WeatherRepository()
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         enableEdgeToEdge()
+
         setContent {
             ExampleTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
+
                     WeatherScreen(
+                        viewModel = viewModel,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -49,12 +54,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun WeatherScreen(
+    viewModel: WeatherViewModel,
     modifier: Modifier = Modifier
 ) {
-    var city by remember {
-        mutableStateOf("")
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -65,10 +67,14 @@ fun WeatherScreen(
             text = "Weather",
             style = MaterialTheme.typography.headlineLarge
         )
-        Spacer(modifier = Modifier.height(24.dp))
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
+
         OutlinedTextField(
-            value = city,
-            onValueChange = { city = it },
+            value = viewModel.city,
+            onValueChange = viewModel::onCityChanged,
             modifier = Modifier.fillMaxWidth(),
             label = {
                 Text("City")
@@ -78,20 +84,31 @@ fun WeatherScreen(
             },
             singleLine = true
         )
-        Spacer(modifier = Modifier.height(12.dp))
+
+        Spacer(
+            modifier = Modifier.height(12.dp)
+        )
+
         Button(
-            onClick = {
-                // We will connect the API later.
-            },
+            onClick = viewModel::searchWeather,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Search") }
-        Spacer(modifier = Modifier.height(32.dp))
-        WeatherCard()
+        ) {
+            Text("Search")
+        }
+
+        Spacer(
+            modifier = Modifier.height(32.dp)
+        )
+
+        viewModel.weather?.let { weather ->
+            WeatherCard(weather)
+        }
     }
 }
 
 @Composable
 fun WeatherCard(
+    weather: Weather,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -103,7 +120,7 @@ fun WeatherCard(
         ) {
 
             Text(
-                text = "Chicago",
+                text = weather.city,
                 style = MaterialTheme.typography.headlineMedium
             )
 
@@ -117,12 +134,12 @@ fun WeatherCard(
             )
 
             Text(
-                text = "72°F",
+                text = weather.temperature,
                 style = MaterialTheme.typography.displayMedium
             )
 
             Text(
-                text = "Clear sky",
+                text = weather.condition,
                 style = MaterialTheme.typography.bodyLarge
             )
 
@@ -137,17 +154,17 @@ fun WeatherCard(
 
                 WeatherDetail(
                     label = "Feels like",
-                    value = "70°F"
+                    value = weather.feelsLike
                 )
 
                 WeatherDetail(
                     label = "Humidity",
-                    value = "45%"
+                    value = weather.humidity
                 )
 
                 WeatherDetail(
                     label = "Wind",
-                    value = "8 mph"
+                    value = weather.wind
                 )
             }
         }
@@ -178,6 +195,14 @@ fun WeatherDetail(
 @Composable
 fun WeatherScreenPreview() {
     ExampleTheme {
-        WeatherScreen()
+        val repository = WeatherRepository()
+        val viewModel = WeatherViewModel(repository)
+
+        viewModel.onCityChanged("Chicago")
+        viewModel.searchWeather()
+
+        WeatherScreen(
+            viewModel = viewModel
+        )
     }
 }
