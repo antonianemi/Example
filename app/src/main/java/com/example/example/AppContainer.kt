@@ -44,8 +44,26 @@ interface AppContainer {
 }
 
 /**
- * Default implementation of AppContainer using lazy initializations.
- * Ensures singletons are created only when accessed for optimal startup performance.
+ * Implementación predeterminada de [AppContainer] que utiliza inicializaciones perezosas (`by lazy`).
+ *
+ * ### Consideraciones de Diseño y Escalabilidad:
+ *
+ * 1. **Naturaleza Sin Estado (*Stateless Services*):**
+ *    Los objetos expuestos en este contenedor (como [Retrofit], [WeatherRepository] y repositorios de preferencias)
+ *    son servicios **stateless** o thread-safe. Múltiples ViewModels pueden utilizarlos simultáneamente sin necesidad de
+ *    limpiar o reiniciar su estado entre llamadas, ya que el estado temporal de la pantalla reside únicamente en el [androidx.lifecycle.ViewModel].
+ *
+ * 2. **Inicialización Perezosa (`by lazy`):**
+ *    Garantiza que los Singletons pesados (clientes de red, bases de datos o repositorios) se instancien únicamente
+ *    cuando son accedidos por primera vez, reduciendo el tiempo de arranque de la aplicación (*App Startup Time*).
+ *
+ * 3. **Componentes Futuros para Concentrar en `AppContainer`:**
+ *    - **Logging & Analytics:** `AnalyticsTracker` o `CrashLogger` para registrar eventos de forma desacoplada.
+ *    - **Cliente HTTP e Interceptores:** `OkHttpClient` con `HttpLoggingInterceptor`, `AuthInterceptor` (tokens/API Keys) y `NetworkMonitor`.
+ *    - **Persistencia Pesada:** Bases de datos locales de Room (`AppDatabase`) y sus DAOs.
+ *    - **Gestión de Sesión:** `SessionManager` o `EncryptedSharedPreferences` para autenticación de usuarios.
+ *    - **Servicios del Sistema:** `LocationProvider` (GPS) o `WorkManager` (tareas en segundo plano).
+ *    - **Inyección de Hilos:** `DispatcherProvider` para parametrizar `Dispatchers.IO` y facilitar Pruebas Unitarias.
  */
 class DefaultAppContainer(private val context: Context) : AppContainer {
 
