@@ -1,169 +1,77 @@
 package com.example.example
+
+import com.example.example.data.local.CityPreferencesRepository
+import com.example.example.data.remote.OpenWeatherMapApi
+import com.example.example.data.remote.WeatherResponseDto
+import kotlinx.coroutines.flow.Flow
+import retrofit2.HttpException
+import java.io.IOException
+
 interface WeatherRepository {
-    fun getWeather(city: String): Weather?
+    suspend fun getWeather(city: String): Result<Weather>
+    val lastSearchedCity: Flow<String?>
+    suspend fun saveLastSearchedCity(city: String)
 }
-class USWeatherRepositoryImpl : WeatherRepository {
-    private val weatherData = mapOf(
-        "Chicago" to Weather(
-            city = "Chicago",
-            temperature = "72°F",
-            condition = "Clear sky",
-            feelsLike = "70°F",
-            humidity = "45%",
-            wind = "8 mph"
-        ),
-        "New York" to Weather(
-            city = "New York",
-            temperature = "68°F",
-            condition = "Partly cloudy",
-            feelsLike = "67°F",
-            humidity = "58%",
-            wind = "11 mph"
-        ),
-        "Los Angeles" to Weather(
-            city = "Los Angeles",
-            temperature = "81°F",
-            condition = "Sunny",
-            feelsLike = "80°F",
-            humidity = "38%",
-            wind = "7 mph"
-        ),
-        "Miami" to Weather(
-            city = "Miami",
-            temperature = "86°F",
-            condition = "Thunderstorms",
-            feelsLike = "91°F",
-            humidity = "78%",
-            wind = "14 mph"
-        ),
-        "Seattle" to Weather(
-            city = "Seattle",
-            temperature = "59°F",
-            condition = "Light rain",
-            feelsLike = "58°F",
-            humidity = "82%",
-            wind = "6 mph"
-        ),
-        "Denver" to Weather(
-            city = "Denver",
-            temperature = "64°F",
-            condition = "Partly cloudy",
-            feelsLike = "63°F",
-            humidity = "32%",
-            wind = "10 mph"
-        )
-    )
-    override fun getWeather(city: String): Weather? {
-        return weatherData[city]
+
+class WeatherRepositoryImpl(
+    private val api: OpenWeatherMapApi,
+    private val apiKey: String,
+    private val cityPreferencesRepository: CityPreferencesRepository
+) : WeatherRepository {
+
+    override val lastSearchedCity: Flow<String?> = cityPreferencesRepository.lastSearchedCity
+
+    override suspend fun saveLastSearchedCity(city: String) {
+        cityPreferencesRepository.saveLastSearchedCity(city)
     }
-}
-class MexicoWeatherRepositoryImpl : WeatherRepository {
-    private val weatherData = mapOf(
-        "Mexico City" to Weather(
-            city = "Mexico City",
-            temperature = "68°F",
-            condition = "Partly cloudy",
-            feelsLike = "67°F",
-            humidity = "55%",
-            wind = "9 mph"
-        ),
-        "Monterrey" to Weather(
-            city = "Monterrey",
-            temperature = "84°F",
-            condition = "Sunny",
-            feelsLike = "85°F",
-            humidity = "42%",
-            wind = "12 mph"
-        ),
-        "Guadalajara" to Weather(
-            city = "Guadalajara",
-            temperature = "76°F",
-            condition = "Clear sky",
-            feelsLike = "75°F",
-            humidity = "48%",
-            wind = "8 mph"
-        ),
-        "Veracruz" to Weather(
-            city = "Veracruz",
-            temperature = "88°F",
-            condition = "Partly cloudy",
-            feelsLike = "94°F",
-            humidity = "76%",
-            wind = "13 mph"
-        ),
-        "Misantla" to Weather(
-            city = "Misantla",
-            temperature = "79°F",
-            condition = "Light rain",
-            feelsLike = "81°F",
-            humidity = "82%",
-            wind = "6 mph"
-        ),
-        "Cancun" to Weather(
-            city = "Cancun",
-            temperature = "86°F",
-            condition = "Thunderstorms",
-            feelsLike = "92°F",
-            humidity = "79%",
-            wind = "15 mph"
-        )
-    )
-    override fun getWeather(city: String): Weather? {
-        return weatherData[city]
+
+    override suspend fun getWeather(city: String): Result<Weather> {
+        return try {
+            val queryCity = if (city.contains(",")) city else "$city,US"
+            val response = api.getWeather(queryCity, apiKey)
+
+            val weatherModel = mapDtoToDomain(response)
+            if (weatherModel != null) {
+                Result.success(weatherModel)
+            } else {
+                Result.failure(Exception("Incomplete weather data received from server"))
+            }
+        } catch (e: HttpException) {
+            val errorMessage = when (e.code()) {
+                404 -> "City not found. Please check the spelling and try again."
+                401 -> "Invalid API Key. Please verify your OpenWeatherMap configuration."
+                else -> "Server error (${e.code()}). Please try again later."
+            }
+            Result.failure(Exception(errorMessage, e))
+        } catch (e: IOException) {
+            Result.failure(Exception("No internet connection. Please check your network.", e))
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "An unexpected error occurred", e))
+        }
     }
-}
-class EmptyWeatherRepositoryImpl : WeatherRepository {
-    private val weatherData = mapOf(
-        "Mexico City" to Weather(
-            city = "Mexico City",
-            temperature = "68°F",
-            condition = "Partly cloudy",
-            feelsLike = "67°F",
-            humidity = "55%",
-            wind = "9 mph"
-        ),
-        "Monterrey" to Weather(
-            city = "Monterrey",
-            temperature = "84°F",
-            condition = "Sunny",
-            feelsLike = "85°F",
-            humidity = "42%",
-            wind = "12 mph"
-        ),
-        "Guadalajara" to Weather(
-            city = "Guadalajara",
-            temperature = "76°F",
-            condition = "Clear sky",
-            feelsLike = "75°F",
-            humidity = "48%",
-            wind = "8 mph"
-        ),
-        "Veracruz" to Weather(
-            city = "Veracruz",
-            temperature = "88°F",
-            condition = "Partly cloudy",
-            feelsLike = "94°F",
-            humidity = "76%",
-            wind = "13 mph"
-        ),
-        "Misantla" to Weather(
-            city = "Misantla",
-            temperature = "79°F",
-            condition = "Light rain",
-            feelsLike = "81°F",
-            humidity = "82%",
-            wind = "6 mph"
-        ),
-        "Cancun" to Weather(
-            city = "Cancun",
-            temperature = "86°F",
-            condition = "Thunderstorms",
-            feelsLike = "92°F",
-            humidity = "79%",
-            wind = "15 mph"
+
+    private fun mapDtoToDomain(dto: WeatherResponseDto): Weather? {
+        val name = dto.name ?: return null
+        val main = dto.main ?: return null
+        val weatherDesc = dto.weather?.firstOrNull() ?: return null
+
+        val iconCode = weatherDesc.icon ?: "01d"
+        val iconUrl = "https://openweathermap.org/img/wn/$iconCode@2x.png"
+
+        val temp = main.temp?.let { "${it.toInt()}°F" } ?: "N/A"
+        val feelsLike = main.feelsLike?.let { "${it.toInt()}°F" } ?: "N/A"
+        val humidity = main.humidity?.let { "$it%" } ?: "N/A"
+        val windSpeed = dto.wind?.speed?.let { "$it mph" } ?: "N/A"
+        val condition = weatherDesc.description?.replaceFirstChar { it.uppercase() } ?: "N/A"
+
+        return Weather(
+            city = name,
+            temperature = temp,
+            condition = condition,
+            feelsLike = feelsLike,
+            humidity = humidity,
+            wind = windSpeed,
+            iconUrl = iconUrl
         )
-    )
-    override fun getWeather(city: String): Weather? {
-        return weatherData[city]
     }
 }

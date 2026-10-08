@@ -6,5 +6,6 @@ data class Weather(
     val condition: String,
     val feelsLike: String,
     val humidity: String,
-    val wind: String
+    val wind: String,
+    val iconUrl: String
 )
