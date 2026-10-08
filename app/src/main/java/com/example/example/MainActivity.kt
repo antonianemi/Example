@@ -38,6 +38,32 @@ import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.example.example.ui.theme.ExampleTheme
 
+/**
+ * Activity principal de la aplicación que actúa como punto de entrada y contenedor de la UI basada en Jetpack Compose.
+ *
+ * ### Decisión de Arquitectura y Puntos Críticos de Funcionamiento / Rendimiento:
+ *
+ * 1. **Gestión de Ciclo de Vida y Retención de Estado (`by viewModels`):**
+ *    - **Por qué:** Se utiliza el delegado `by viewModels` con una fábrica personalizada (`WeatherViewModel.Factory`) para
+ *      inyectar el repositorio desde el contenedor global (`ExampleApplication.container`).
+ *    - **Beneficios:** Garantiza que el [WeatherViewModel] sobreviva a cambios de configuración (como rotación de pantalla),
+ *      evitando pérdida de estado, peticiones de red duplicadas y reconstrucciones innecesarias.
+ *
+ * 2. **Diseño Inmersivo Edge-to-Edge (`enableEdgeToEdge()` + `Scaffold`):**
+ *    - **Por qué:** Extiende la interfaz por debajo de las barras del sistema (status y navigation bar) alineado a las guías modernas de Android.
+ *    - **Beneficios:** Proporciona una interfaz limpia e inmersiva. Aplicar `padding(innerPadding)` evita que los elementos interactivos
+ *      queden tapados por los controles del sistema.
+ *
+ * 3. **Flujo Unidireccional de Datos (UDF) y Reactividad (`WeatherUiState`):**
+ *    - **Por qué:** La UI reacciona de forma exhaustiva a un estado sellado (`Initial`, `Loading`, `Success`, `Error`).
+ *    - **Beneficios:** Evita estados inconsistentes o contradictorios en la pantalla y desactiva controles durante la carga
+ *      para evitar peticiones de red repetidas.
+ *
+ * 4. **Carga Eficiente de Recursos e Imágenes con Coil (`SubcomposeAsyncImage` + `LocalContext.current`):**
+ *    - **Por qué:** Utiliza el contexto de Android mediante `LocalContext.current` para delegar la descarga e íconos de la red a Coil.
+ *    - **Beneficios:** Manejo automático de caché de 2 niveles (disco y memoria RAM), optimización del ciclo de vida y slots
+ *      de contingencia (`loading` y `error`) para mantener una UX fluida.
+ */
 class MainActivity : ComponentActivity() {
     // Delegate ViewModel creation, allowing it to survive configuration changes
     private val viewModel: WeatherViewModel by viewModels {
@@ -174,13 +200,22 @@ fun WeatherCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // `SubcomposeAsyncImage` (parte de la librería Coil para Jetpack Compose):
+            // Carga e ilustra de manera asíncrona la imagen o ícono del clima desde la URL remota.
             SubcomposeAsyncImage(
+                // `model`: Construye la petición de imagen mediante Coil ImageRequest.
+                // - LocalContext.current: Obtiene el `Context` de Android actual dentro de Compose. Coil lo requiere
+                //   para acceder a `context.cacheDir` (caché en disco), gestionar el límite de memoria RAM,
+                //   monitorear la conexión a red y vincular la carga al ciclo de vida.
+                // - .data(weather.iconUrl): Especifica la URL origen de la imagen.
+                // - .crossfade(true): Aplica una animación suave de transición cuando la imagen termina de cargarse.
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(weather.iconUrl)
                     .crossfade(true)
                     .build(),
                 contentDescription = weather.condition,
                 modifier = Modifier.size(96.dp),
+                // `loading`: Composable secundario que se renderiza mientras Coil descarga la imagen de internet.
                 loading = {
                     Box(
                         modifier = Modifier.size(96.dp),
@@ -189,6 +224,7 @@ fun WeatherCard(
                         CircularProgressIndicator(modifier = Modifier.size(32.dp))
                     }
                 },
+                // `error`: Composable de contingencia (fallback) que se muestra si la descarga falla o no hay red.
                 error = {
                     Text(
                         text = "🌤️",

@@ -8,18 +8,36 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 /**
- * Manual Dependency Injection container contract.
- * Holds application-scoped singleton dependencies.
+ * Contrato del contenedor de Inyección de Dependencias Manual (*Manual Dependency Injection*).
+ * Mantiene dependencias de tipo Singleton asociadas al ciclo de vida de la Aplicación ([DefaultAppContainer]).
  *
- * Why Application-Level Scoping?
- * 1. Persistence & Efficiency: The container and its singletons (like [WeatherRepository]) survive
- *    configuration changes (e.g., screen rotations) and are shared across screens without
- *    recreating expensive network clients or database connections.
- * 2. Resource Management & Cancellation: Although the repository instance lives at the application level,
- *    active network calls and coroutines are invoked and managed by each screen's ViewModel via
- *    [androidx.lifecycle.ViewModel] scope. When the user leaves a screen, the ViewModel is destroyed
- *    and cancels all ongoing network requests automatically. Thus, application-scoped repositories
- *    do not cause hanging tasks or memory leaks when screens are dismissed.
+ * ### ¿Por qué Scoping a Nivel de Aplicación?
+ * 1. **Persistencia y Eficiencia:** El contenedor y sus Singletons (como [WeatherRepository], [Retrofit] y DataStore)
+ *    sobreviven a cambios de configuración (ej. rotaciones de pantalla) y se comparten entre múltiples pantallas sin
+ *    recrear clientes HTTP de red ni conexiones a bases de datos pesadas.
+ * 2. **Gestión de Recursos y Cancelación:** Aunque las instancias del repositorio viven a nivel de aplicación,
+ *    las llamadas a red activas y las corrutinas son invocadas y gestionadas por el `viewModelScope` de cada pantalla.
+ *    Cuando el usuario abandona una pantalla, el ViewModel se destruye y cancela automáticamente todas sus corrutinas
+ *    en ejecución. Por lo tanto, los repositorios persistentes no provocan tareas colgadas ni fugas de memoria.
+ *
+ * ### Riesgos y Consecuencias de NO considerar la separación de Scopes:
+ *
+ * - **Fugas de Memoria (*Memory Leaks*):** Almacenar referencias de objetos con ciclo de vida corto (ej. `Activity`, `View` o `Context` de vista)
+ *   dentro de Singletons o componentes de Application Scope impide que el recolector de basura (*Garbage Collector*) libere la RAM
+ *   al cerrar o rotar la pantalla, derivando eventualmente en un `OutOfMemoryError` (OOM).
+ *
+ * - **Tareas Huérfanas (*Hanging Tasks / Zombie Coroutines*):** Ejecutar operaciones asíncronas o peticiones HTTP usando un
+ *   Scope de aplicación (`GlobalScope` o `applicationScope`) en lugar de `viewModelScope` provoca que las tareas continúen
+ *   corriendo en segundo plano aunque el usuario haya salido de la pantalla, malgastando datos móviles, batería y CPU.
+ *
+ * - **Crashes por Interfaz Destruida:** Intentar notificar callbacks o actualizar la UI desde corrutinas sin cancelar asociadas a
+ *   pantallas o vistas que ya han sido destruidas por el sistema operativo.
+ *
+ * - **Peticiones Duplicadas por Rotación:** Ejecutar peticiones asíncronas en el Scope de la Vista/Activity provoca que cada cambio
+ *   de orientación de pantalla cancele y vuelva a lanzar la petición HTTP desde cero, generando lentitud y sobrecarga en el servidor.
+ *
+ * - **Contaminación de Estado (*State Leak*):** Guardar datos temporales de la interfaz (como texto ingresado en un formulario) en
+ *   un Singleton a nivel de aplicación provoca que los datos persistan indebidamente si el usuario cierra y vuelve a abrir la pantalla más tarde.
  */
 interface AppContainer {
     val weatherRepository: WeatherRepository
