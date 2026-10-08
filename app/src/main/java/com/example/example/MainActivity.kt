@@ -30,15 +30,20 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.example.example.ui.theme.ExampleTheme
 
 class MainActivity : ComponentActivity() {
+    // Delegate ViewModel creation, allowing it to survive configuration changes
     private val viewModel: WeatherViewModel by viewModels {
+        // Provide a custom factory since WeatherViewModel requires a repository constructor parameter
         WeatherViewModel.Factory(
+            // Retrieve the weatherRepository from the application-level dependency container
             (application as ExampleApplication).container.weatherRepository
         )
     }
@@ -97,8 +102,15 @@ fun WeatherScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         Button(
+            // `onClick`: Referencia a función (function reference) que ejecuta la búsqueda de clima
+            // en el ViewModel al hacer clic, manteniendo la UI desvinculada de la lógica de negocio.
             onClick = viewModel::searchWeather,
+            // `modifier`: Ajusta el diseño para expandir el botón a todo el ancho disponible
+            // del contenedor padre (Column), mejorando la usabilidad y el área táctil.
             modifier = Modifier.fillMaxWidth(),
+            // `enabled`: Control reactivo del estado del botón según `uiState`.
+            // Cuando cambia a `Loading`, se evalúa como `false` (desactivando el botón,
+            // volviéndolo opaco/gris y bloqueando clics adicionales para evitar peticiones duplicadas).
             enabled = uiState !is WeatherUiState.Loading
         ) {
             Text("Search")
@@ -106,7 +118,9 @@ fun WeatherScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Evalúa de forma exhaustiva el estado actual de la UI (`uiState`)
         when (val state = uiState) {
+            // Estado inicial: Muestra un texto guía antes de que el usuario realice alguna búsqueda
             is WeatherUiState.Initial -> {
                 Text(
                     text = "Search for a US city to view current weather information.",
@@ -115,6 +129,7 @@ fun WeatherScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            // Estado de carga: Muestra un indicador circular de progreso centrado mientras se obtienen los datos
             is WeatherUiState.Loading -> {
                 Box(
                     modifier = Modifier
@@ -125,9 +140,11 @@ fun WeatherScreen(
                     CircularProgressIndicator()
                 }
             }
+            // Estado de éxito: Muestra la tarjeta con la información meteorológica obtenida exitosamente
             is WeatherUiState.Success -> {
                 WeatherCard(weather = state.weather)
             }
+            // Estado de error: Muestra una tarjeta con el mensaje de error y acción para reintentar la búsqueda
             is WeatherUiState.Error -> {
                 ErrorCard(
                     message = state.message,
@@ -157,10 +174,27 @@ fun WeatherCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            AsyncImage(
-                model = weather.iconUrl,
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(weather.iconUrl)
+                    .crossfade(true)
+                    .build(),
                 contentDescription = weather.condition,
-                modifier = Modifier.size(96.dp)
+                modifier = Modifier.size(96.dp),
+                loading = {
+                    Box(
+                        modifier = Modifier.size(96.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                    }
+                },
+                error = {
+                    Text(
+                        text = "🌤️",
+                        style = MaterialTheme.typography.displayLarge
+                    )
+                }
             )
 
             Text(
